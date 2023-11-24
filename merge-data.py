@@ -4,7 +4,7 @@ from pandas import read_csv
 from pyLSHash import FuzzyHash, SimHash, hamming
 
 fuzzy_hash = FuzzyHash()
-
+sim_hash = SimHash()
 
 # Create a function to read the csv file and return a dataframe
 def load_data(filename):
@@ -20,14 +20,14 @@ def fuzzy_hash_data(data):
 
     # Iterate through the dataframe
     for index, row in data.iterrows():
-        # Concatenate the columns cpuname,oscaption,osversion,cpucaption,osarchitecture,cpuarchitecture,apps and convert all columns to string
-        stmt = str(row['cpuname']) + '|' + str(row['oscaption']) + '|' + str(row['osversion']) + '|' + str(row['cpucaption']) + '|' + str(row['osarchitecture']) + '|' + str(row['cpuarchitecture']) + '|' + str(row['apps'])
+        # Concatenate the columns oscaption,osversion,osarchitecture,apps and convert all columns to string
+        stmt = str(row['oscaption']) + '|' + str(row['osversion']) + '|' + str(row['osarchitecture']) + '|' + str(row['apps'])
         hash = fuzzy_hash.get_hash(stmt.encode('utf-8'))
         # Convert the hash to hex string
         row['fuzzy_hash'] = hash.hex()
 
-        # Concatenate the columns cpuname,oscaption,osversion,cpucaption,osarchitecture,cpuarchitecture and convert all columns to string
-        stmt = str(row['cpuname']) + '|' + str(row['oscaption']) + '|' + str(row['osversion']) + '|' + str(row['cpucaption']) + '|' + str(row['osarchitecture']) + '|' + str(row['cpuarchitecture'])
+        # Concatenate the columns oscaption,osversion,osarchitecture and convert all columns to string
+        stmt = str(row['oscaption']) + '|' + str(row['osversion']) + '|' + str(row['osarchitecture'])
         hash = fuzzy_hash.get_hash(stmt.encode('utf-8'))
         # Convert the hash to hex string
         row['fuzzy_hash_without_apps'] = hash.hex()
@@ -36,9 +36,35 @@ def fuzzy_hash_data(data):
         data.loc[index] = row
 
     # Print the dataframe
-    print(data)
+    # print(data)
 
     # Return the dataframe with fuzzy hash
+    return data
+
+
+# Calculate the sim hash of the dataframe, and return the dataframe with sim hash
+def sim_hash_data(data):
+    # Create a new column sim_hash with empty string
+    data['sim_hash'] = ''
+    data['sim_hash_without_apps'] = ''
+
+    # Iterate through the dataframe
+    for index, row in data.iterrows():
+        # Concatenate the columns oscaption,osversion,osarchitecture,apps and convert all columns to string
+        stmt = str(row['oscaption']) + '|' + str(row['osversion']) + '|' + str(row['osarchitecture']) + '|' + str(row['apps'])
+        row['sim_hash'] = sim_hash.get_hash(stmt)
+
+        # Concatenate the columns oscaption,osversion,osarchitecture and convert all columns to string
+        stmt = str(row['oscaption']) + '|' + str(row['osversion']) + '|' + str(row['osarchitecture'])
+        row['sim_hash_without_apps'] = sim_hash.get_hash(stmt)
+
+        # Update the row in the dataframe
+        data.loc[index] = row
+
+    # Print the dataframe
+    # print(data)
+
+    # Return the dataframe with sim hash
     return data
 
 
@@ -74,6 +100,8 @@ def merge_sw_by_serverguid_guid(data):
         subset_data = subset_data.drop(columns=['serverguid', 'guid'])
         # Drop the duplicate rows
         subset_data = subset_data.drop_duplicates()
+        # Sort the rows by caption,name,vendor
+        subset_data = subset_data.sort_values(by=['caption', 'name', 'vendor'])
 
         # Print the subset dataframe
         # print(subset_data)
@@ -133,7 +161,7 @@ def merge_by_serverguid_guid(data1, data2):
     df = df.dropna(subset=['apps'])
 
     # Print the new dataframe
-    print(df)
+    # print(df)
 
     return df
 
@@ -142,6 +170,8 @@ def merge_by_serverguid_guid(data1, data2):
 def main():
     # Read the agent-telemetry.csv file
     agents = load_data('metabase/agent-telemetry.csv')
+    # Drop the columns cpuname, cpucaption, cpuarchitecture
+    agents = agents.drop(columns=['cpuname', 'cpucaption', 'cpuarchitecture'])
 
     # Read the agent-sw-telemetry.csv file
     sw = load_data('metabase/agent-sw-telemetry.csv')
@@ -154,6 +184,9 @@ def main():
 
     # Calculate the fuzzy hash of the dataframe, and return the dataframe with fuzzy hash
     agent_apps = fuzzy_hash_data(agent_apps)
+
+    # Calculate the sim hash of the dataframe, and return the dataframe with sim hash
+    agent_apps = sim_hash_data(agent_apps)
 
     # Write the output to agent-apps-{serverguid}.csv file, and group by serverguid into different files
     for serverguid in agent_apps['serverguid'].unique():
