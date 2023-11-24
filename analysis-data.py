@@ -146,8 +146,11 @@ def main(input_file, n):
     cols_at_end = ['apps']
     agent_apps = agent_apps[[c for c in agent_apps if c not in cols_at_end] + [c for c in cols_at_end if c in agent_apps]]
 
+    # Output file name
+    output_file = input_file.split('.')[0] + '-similarity.csv'
+
     # Write the new dataframe to corr_fuzzy_hash.csv file
-    agent_apps.to_csv('corr_fuzzy_hash.csv', index=False)
+    agent_apps.to_csv(output_file, index=False)
 
 
 # Call the main function
